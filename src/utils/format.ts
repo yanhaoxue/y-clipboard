@@ -1,4 +1,5 @@
 import type { ClipboardRecord, ItemKind } from '../types'
+import { codeLangOf, codeLines } from './code'
 
 /** 相对时间：刚刚 / n 分钟前 / n 小时前 / 昨天 / MM-DD / YYYY-MM-DD */
 export function relTime(ts: number): string {
@@ -20,9 +21,38 @@ export function previewText(text: string, max = 240): string {
   return t.length > max ? t.slice(0, max) + '…' : t
 }
 
-/** 文件路径列表 → 文件名列表 */
-export function fileNames(files: string[]): string {
-  return files.map((f) => f.replace(/[\\/]+/g, '/').split('/').pop() || f).join('、')
+/** 路径 → 文件名（兼容 \ 与 / 两种分隔符） */
+export function fileName(p: string): string {
+  const s = String(p).replace(/[\\/]+$/, '')
+  const i = Math.max(s.lastIndexOf('\\'), s.lastIndexOf('/'))
+  return i >= 0 ? s.slice(i + 1) : s
+}
+
+/** 路径 → 所在目录（根目录下的文件返回根，如 "E:\" 或 "/"） */
+export function fileDir(p: string): string {
+  const s = String(p).replace(/[\\/]+$/, '')
+  const i = Math.max(s.lastIndexOf('\\'), s.lastIndexOf('/'))
+  if (i < 0) return ''
+  let dir = s.slice(0, i)
+  // "E:\a.txt" → 目录是盘符根 "E:\"，不能切成 "E:"
+  if (/^[A-Za-z]:$/.test(dir)) dir += '\\'
+  else if (dir === '') dir = s[0] === '/' ? '/' : '\\'
+  return dir
+}
+
+/**
+ * 长路径折叠：只保留"盘符 + 省略号 + 末尾几层目录"。
+ *
+ * 文件名已经在前面单独显示，所以这里真正的信息量在末尾那几层目录；
+ * 若保留开头（如 "D:\Users\someone\…"）反而会把最有用的一段挤掉，
+ * 而末尾被截断时连 CSS 省略号都救不回来（CSS 只能截尾、不能截头）。
+ */
+export function shrinkPath(p: string, max = 40): string {
+  const s = String(p)
+  if (s.length <= max) return s
+  const head = /^[A-Za-z]:[\\/]/.test(s) ? s.slice(0, 3) : s.slice(0, 1)
+  const tailLen = Math.max(8, max - head.length - 1)
+  return head + '…' + s.slice(Math.max(head.length, s.length - tailLen))
 }
 
 /** 字节数描述（文件/图片大小如有） */
@@ -54,11 +84,23 @@ export function isHexColor(t: string): boolean {
 
 /** 记录的次级说明文案（空串表示不显示） */
 export function recordMeta(r: ClipboardRecord): string {
-  if (r.kind === 'image') return ''
+  if (r.kind === 'image') {
+    // 宿主提供分辨率（"W * H"）与来源应用时展示：1920×1080 · 来自 Chrome
+    const parts: string[] = []
+    const m = r.resolution?.match(/^(\d+)\s*\*\s*(\d+)$/)
+    if (m) parts.push(`${m[1]}×${m[2]}`)
+    if (r.appName) parts.push(r.appName)
+    return parts.join(' · ')
+  }
   if (r.kind === 'file' && r.files) return `${r.files.length} 个文件`
   if (r.kind === 'color') return '颜色值'
   if (r.kind === 'link') return hostname(r.content)
-  if (r.kind === 'code') return '代码片段'
+  if (r.kind === 'code') {
+    // 代码块自身已带语言与行数标签，这里只是给兜底场景（收藏快照等）用的文案
+    const lang = codeLangOf(r.content)
+    const n = codeLines(r.content).length
+    return [lang, n > 1 ? `${n} 行` : '代码片段'].filter(Boolean).join(' · ')
+  }
   return `${r.content.length} 字符`
 }
 

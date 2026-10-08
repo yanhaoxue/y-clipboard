@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ClipboardRecord } from '../types'
-import { toImgSrc } from '../api'
-import { KIND_META, previewText, relTime, recordMeta, fileNames, isHexColor } from '../utils/format'
+import { KIND_META, previewText, relTime, recordMeta, isHexColor } from '../utils/format'
 
 const props = defineProps<{
   record: ClipboardRecord
@@ -20,16 +19,12 @@ const meta = computed(() => KIND_META[props.record.kind])
 const time = computed(() => relTime(props.record.createdAt))
 const sub = computed(() => recordMeta(props.record))
 
+// 文件记录已由 FileCard 承载（要显示路径 + 定位），这里只处理文本类
 const preview = computed(() => {
   const r = props.record
-  if (r.kind === 'file' && r.files) return fileNames(r.files)
   if (r.kind === 'color') return r.content.trim()
   return previewText(r.content)
 })
-
-const imgSrc = computed(() =>
-  props.record.kind === 'image' ? toImgSrc(props.record.content) : ''
-)
 
 const colorSwatch = computed(() => (isHexColor(props.record.content) ? props.record.content.trim() : ''))
 </script>
@@ -65,9 +60,6 @@ const colorSwatch = computed(() => (isHexColor(props.record.content) ? props.rec
         </template>
       </div>
     </div>
-
-    <!-- 图片缩略 -->
-    <img v-if="imgSrc" class="thumb" :src="imgSrc" loading="lazy" alt="" draggable="false" />
 
     <!-- 右：时间 + 操作 -->
     <div class="tail">
@@ -153,16 +145,6 @@ const colorSwatch = computed(() => (isHexColor(props.record.content) ? props.rec
 
 .kind-tag { font-weight: 500; }
 .dot { opacity: 0.5; }
-
-.thumb {
-  width: 52px;
-  height: 40px;
-  flex: none;
-  object-fit: cover;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-}
 
 .tail {
   flex: none;
