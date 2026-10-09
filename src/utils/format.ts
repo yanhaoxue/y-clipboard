@@ -1,5 +1,6 @@
 import type { ClipboardRecord, ItemKind } from '../types'
 import { codeLangOf, codeLines } from './code'
+import { CAT_ICONS } from './icons'
 
 /** 相对时间：刚刚 / n 分钟前 / n 小时前 / 昨天 / MM-DD / YYYY-MM-DD */
 export function relTime(ts: number): string {
@@ -68,13 +69,18 @@ export function humanSize(bytes?: number): string {
   return `${n.toFixed(n >= 100 || i === 0 ? 0 : 1)} ${units[i]}`
 }
 
+/**
+ * 类型元信息。
+ * `icon` 现在指向 PNG 素材（原来是一段 SVG path）—— 列表项的类型标识与
+ * 侧栏分类共用同一套图标，避免同一类型出现两套图形。
+ */
 export const KIND_META: Record<ItemKind, { label: string; color: string; icon: string }> = {
-  text: { label: '文本', color: 'var(--c-text)', icon: 'M4 7h16M4 12h16M4 17h10' },
-  link: { label: '链接', color: 'var(--c-link)', icon: 'M10 14a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07L11.5 5.4M14 10a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.47' },
-  code: { label: '代码', color: 'var(--c-code)', icon: 'M8 6l-5 6 5 6M16 6l5 6-5 6M13 4l-2 16' },
-  color: { label: '颜色', color: 'var(--c-color)', icon: 'M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6l2.1 2.1m0-12.8l-2.1 2.1M7.7 16.3l-2.1 2.1' },
-  image: { label: '图片', color: 'var(--c-image)', icon: 'M3 5h18v14H3zM3 15l5-4 4 3 3-2 6 5M15.5 9.5a1 1 0 1 0 0-.01' },
-  file: { label: '文件', color: 'var(--c-file)', icon: 'M6 2h8l4 4v16H6zM14 2v5h4' }
+  text: { label: '文本', color: 'var(--c-text)', icon: CAT_ICONS.text },
+  link: { label: '链接', color: 'var(--c-link)', icon: CAT_ICONS.link },
+  code: { label: '代码', color: 'var(--c-code)', icon: CAT_ICONS.code },
+  color: { label: '颜色', color: 'var(--c-color)', icon: CAT_ICONS.color },
+  image: { label: '图片', color: 'var(--c-image)', icon: CAT_ICONS.image },
+  file: { label: '文件', color: 'var(--c-file)', icon: CAT_ICONS.file }
 }
 
 /** 颜色色板展示（#hex 记录） */

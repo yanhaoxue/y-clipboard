@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { ClipboardRecord } from '../types'
-import { relTime } from '../utils/format'
+import { KIND_META, relTime } from '../utils/format'
 import { codeLangOf, codeLines, codeIsClipped, highlightLines, CODE_MAX_LINES } from '../utils/code'
 
 /**
@@ -108,10 +108,7 @@ watch(
 <template>
   <div class="ccard" :class="{ sel: selected }" @click="emit('copy')">
     <div class="lead">
-      <svg class="icon-svg type-icon" viewBox="0 0 24 24" fill="none"
-        stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M8 6l-5 6 5 6M16 6l5 6-5 6M13 4l-2 16" stroke="currentColor" />
-      </svg>
+      <img class="type-icon" :src="KIND_META.code.icon" alt="代码" draggable="false" />
     </div>
 
     <div class="body">
@@ -184,16 +181,20 @@ watch(
 .ccard.sel { background: var(--accent-weak); }
 
 .lead {
-  width: 30px;
+  width: 24px;
   flex: none;
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 3px;
-  color: var(--c-code);
+  padding-top: 1px;
 }
 
-.type-icon { width: 17px; height: 17px; }
+.type-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  object-fit: contain;
+}
 
 .body {
   flex: 1;

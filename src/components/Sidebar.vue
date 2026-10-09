@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useStore } from '../composables/useStore'
-import { CATS, catIconColor } from '../utils/categories'
+import { CATS } from '../utils/categories'
 
 const store = useStore()
 
@@ -31,10 +31,11 @@ function onClear(): void {
       :class="{ on: store.activeCat.value === cat.key }"
       @click="store.setCat(cat.key)"
     >
-      <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke-width="1.7"
-        stroke-linecap="round" stroke-linejoin="round">
-        <path :d="cat.icon" :stroke="catIconColor(cat)" />
-      </svg>
+      <!--
+        图标是 PNG 素材（透明底彩色字形），颜色写死在图里，
+        所以选中态不能再靠"图标变色"表达 —— 靠整行的背景高亮。见 utils/icons.ts。
+      -->
+      <img class="cat-icon" :src="cat.icon" :alt="cat.label" draggable="false" />
       <span class="cat-label">{{ cat.label }}</span>
       <span class="cat-count">{{ store.counts[cat.key] || '' }}</span>
     </button>
@@ -92,12 +93,26 @@ function onClear(): void {
 .cat {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 32px;
+  gap: 7px;
+  height: 34px;
   padding: 0 10px;
   border-radius: var(--radius);
   color: var(--text-2);
   transition: background 0.12s, color 0.12s;
+}
+
+/*
+ * 图标位 24px：v2 素材是统一 128×128 画布、字形居中且光学尺寸一致，
+ * 实测字形只占画布 63%~81%（留白用来对齐视觉重心）。
+ * 也就是容器 20px 时字形看着约 13~16px。
+ * 28px、24px 都试过，用户仍反馈偏大（v2 素材留白多，容器尺寸要压住才显得精致），收到 20px。
+ */
+.cat-icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  display: block;
+  object-fit: contain;
 }
 
 .cat:hover { background: var(--hover); }

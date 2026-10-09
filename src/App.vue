@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { api } from './api'
 import { useStore } from './composables/useStore'
+import { CAT_ICONS_LG } from './utils/icons'
 import type { ClipboardRecord } from './types'
 import Sidebar from './components/Sidebar.vue'
 import Toolbar from './components/Toolbar.vue'
@@ -52,15 +53,20 @@ function copyPreview(r: ClipboardRecord): void {
   void store.copyRecord(r)
 }
 
-const starredIds = computed(() => {
-  const set = new Set<string>()
-  // 以当前渲染的集合为准：远端搜索结果不在 records 里，否则它们的星标会丢失
-  for (const r of store.filtered.value) {
-    const k = store.favKey(r)
-    if (store.favorites.value.some((f) => f.id === k)) set.add(k)
-  }
-  return set
-})
+/**
+ * 已收藏的内容 key 集合。
+ * 直接对任意记录（含远端搜索结果，它们不在 records 里）算 key 再查表即可，
+ * 不需要"先遍历当前列表"—— 查表本身就是 O(1)，且不会因为某条记录不在
+ * filtered 里而漏判。
+ */
+const favKeys = computed(() => new Set(store.favorites.value.map((f) => f.id)))
+
+/**
+ * 列表里的星标是否点亮。
+ * 必须用 `favKey(r)`（内容哈希）去查，不能用 `r.id`（宿主历史 id）：
+ * 两者不是同一套值，用 id 查会永远查不中 —— 也就是"点了星却不亮"。
+ */
+const isStarred = (r: ClipboardRecord): boolean => favKeys.value.has(store.favKey(r))
 
 /* ---------- 主题 ---------- */
 
@@ -164,7 +170,7 @@ onBeforeUnmount(() => {
           v-if="store.filtered.value.length > 0"
           :items="store.filtered.value"
           :selected-id="selectedRecord?.id ?? null"
-          :starred-ids="starredIds"
+          :is-starred="isStarred"
           :img-scale="store.imgScale.value"
           :reset-key="store.listKey.value"
           @copy="(r) => store.copyRecord(r)"
@@ -176,10 +182,13 @@ onBeforeUnmount(() => {
         />
 
         <div v-else class="empty">
-          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke-width="1.2"
-            stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 3h9a2 2 0 0 1 2 2v11M5 7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM11 12h4M11 16h4" stroke="currentColor" />
-          </svg>
+          <!--
+            空态是唯一的大图标位（48px），所以用 128px 原图那档（CAT_ICONS_LG）：
+            DPR 2 的屏幕上需要 144 物理像素，64px 那档不够用。
+            字面大小看着比卡片版小，是因为 v2 素材是统一画布、字形居中留白的，
+            视觉重心反而更稳。
+          -->
+          <img class="empty-icon" :src="CAT_ICONS_LG.all" alt="" draggable="false" />
           <p class="empty-title">
             {{ store.loading.value
               ? '正在查找…'
@@ -238,7 +247,17 @@ onBeforeUnmount(() => {
   color: var(--text-3);
 }
 
-.empty-icon { width: 44px; height: 44px; opacity: 0.5; }
+/*
+ * 空态 48px：v2 素材字形只占画布的 63%~81%，48px 下字形看着约 30~39px，
+ * 撑得起"引导图"的分量又不会喧宾夺主（72 / 60px 都试过，用户反馈偏大）。
+ * 不降不透明度（降了彩色字形会发灰显脏）。
+ */
+.empty-icon {
+  width: 48px;
+  height: 48px;
+  display: block;
+  object-fit: contain;
+}
 .empty-title { font-size: 13.5px; color: var(--text-2); }
 .empty-sub { font-size: 12px; }
 </style>

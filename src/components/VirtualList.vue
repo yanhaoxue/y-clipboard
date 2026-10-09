@@ -10,7 +10,14 @@ import ImageCard from './ImageCard.vue'
 const props = defineProps<{
   items: ClipboardRecord[]
   selectedId: string | null
-  starredIds: Set<string>
+  /**
+   * 判断某条记录是否已收藏。
+   * 这里必须是"函数"而不是"已收藏 id 的集合"：收藏是以**内容 key**（`favKey`）
+   * 存的，而记录的 `id` 是宿主给的历史 id，两者不是同一个值 ——
+   * 直接拿 `id` 去查收藏集合会永远查不中，表现为"点了星却不亮"
+   * （只有收藏分类下 id 恰好等于 key，才碰巧是对的）。
+   */
+  isStarred: (r: ClipboardRecord) => boolean
   /** 图片行的缩放档位 */
   imgScale: ImgScale
   /**
@@ -180,7 +187,7 @@ onBeforeUnmount(() => ro?.disconnect())
           v-if="row.rec.kind === 'image'"
           :record="row.rec"
           :selected="row.rec.id === selectedId"
-          :starred="starredIds.has(row.rec.id)"
+          :starred="isStarred(row.rec)"
           @copy="emit('copy', row.rec)"
           @star="emit('star', row.rec)"
           @remove="emit('remove', row.rec)"
@@ -190,7 +197,7 @@ onBeforeUnmount(() => ro?.disconnect())
           v-else-if="row.rec.kind === 'code'"
           :record="row.rec"
           :selected="row.rec.id === selectedId"
-          :starred="starredIds.has(row.rec.id)"
+          :starred="isStarred(row.rec)"
           @copy="emit('copy', row.rec)"
           @star="emit('star', row.rec)"
           @remove="emit('remove', row.rec)"
@@ -200,7 +207,7 @@ onBeforeUnmount(() => ro?.disconnect())
           v-else-if="row.rec.kind === 'file'"
           :record="row.rec"
           :selected="row.rec.id === selectedId"
-          :starred="starredIds.has(row.rec.id)"
+          :starred="isStarred(row.rec)"
           @copy="emit('copy', row.rec)"
           @star="emit('star', row.rec)"
           @remove="emit('remove', row.rec)"
@@ -210,7 +217,7 @@ onBeforeUnmount(() => ro?.disconnect())
           v-else
           :record="row.rec"
           :selected="row.rec.id === selectedId"
-          :starred="starredIds.has(row.rec.id)"
+          :starred="isStarred(row.rec)"
           @copy="emit('copy', row.rec)"
           @star="emit('star', row.rec)"
           @remove="emit('remove', row.rec)"

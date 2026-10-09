@@ -36,17 +36,14 @@ const colorSwatch = computed(() => (isHexColor(props.record.content) ? props.rec
     @click="emit('copy')"
     @dblclick.prevent
   >
-    <!-- 左：类型标识 -->
-    <div class="lead" :style="{ color: meta.color }">
+    <!-- 左：类型标识（PNG 卡片图标，与侧栏同一套素材） -->
+    <div class="lead">
       <span
         v-if="colorSwatch"
         class="swatch"
         :style="{ background: colorSwatch }"
       />
-      <svg v-else class="icon-svg type-icon" viewBox="0 0 24 24" fill="none"
-        stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <path :d="meta.icon" stroke="currentColor" />
-      </svg>
+      <img v-else class="type-icon" :src="meta.icon" :alt="meta.label" draggable="false" />
     </div>
 
     <!-- 中：内容 -->
@@ -104,14 +101,22 @@ const colorSwatch = computed(() => (isHexColor(props.record.content) ? props.rec
 .item.sel { background: var(--accent-weak); }
 
 .lead {
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 7px;
   background: var(--bg);
+}
+
+/* 类型图标用 PNG 素材（透明底彩色字形），与侧栏分类同一套；20px 的由来见 Sidebar 的 .cat-icon */
+.type-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  object-fit: contain;
 }
 
 .swatch {

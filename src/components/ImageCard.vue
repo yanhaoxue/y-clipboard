@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import type { ClipboardRecord } from '../types'
 import { relTime } from '../utils/format'
+import { CAT_ICONS_LG } from '../utils/icons'
 import { ratioOf, resolutionText } from '../utils/layout'
 import { resolveImageSrc } from '../utils/image'
 
@@ -100,13 +101,9 @@ const placeholder = computed(() => {
       @error="failed = true"
     />
 
-    <!-- 无图 / 加载失败：占位块 + 说明文案 -->
+    <!-- 无图 / 加载失败：占位块 + 说明文案（图标用 PNG 卡片素材） -->
     <div v-else class="fallback">
-      <svg class="fallback-icon" viewBox="0 0 24 24" fill="none" stroke-width="1.4"
-        stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 5h18v14H3zM3 15l5-4 4 3 3-2 6 5M15.5 9.5a1 1 0 1 0 0-.01"
-          stroke="currentColor" />
-      </svg>
+      <img class="fallback-icon" :src="CAT_ICONS_LG.image" alt="图片" draggable="false" />
       <span class="fallback-text">{{ placeholder }}</span>
     </div>
 
@@ -212,7 +209,13 @@ const placeholder = computed(() => {
   opacity: 0.85;
 }
 
-.fallback-icon { width: 26px; height: 26px; flex: none; }
+.fallback-icon {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: block;
+  object-fit: contain;
+}
 
 .fallback-text {
   font-size: 12px;

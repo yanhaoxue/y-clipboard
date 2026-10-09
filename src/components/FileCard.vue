@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ClipboardRecord } from '../types'
-import { fileDir, fileName, relTime, shrinkPath } from '../utils/format'
+import { KIND_META, fileDir, fileName, relTime, shrinkPath } from '../utils/format'
 import { FILE_MAX_LINES } from '../utils/layout'
 import { fileExists } from '../utils/fs'
 
@@ -54,10 +54,7 @@ const countText = computed(() => (paths.value.length > 1 ? `${paths.value.length
 <template>
   <div class="fcard" :class="{ sel: selected }" @click="emit('copy')">
     <div class="lead">
-      <svg class="icon-svg type-icon" viewBox="0 0 24 24" fill="none"
-        stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M6 2h8l4 4v16H6zM14 2v5h4" stroke="currentColor" />
-      </svg>
+      <img class="type-icon" :src="KIND_META.file.icon" alt="文件" draggable="false" />
     </div>
 
     <div class="body">
@@ -128,15 +125,21 @@ const countText = computed(() => (paths.value.length > 1 ? `${paths.value.length
 .fcard.sel { background: var(--accent-weak); }
 
 .lead {
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 7px;
   background: var(--bg);
-  color: var(--c-file);
+}
+
+.type-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  object-fit: contain;
 }
 
 .body {
