@@ -178,6 +178,7 @@ onBeforeUnmount(() => {
           @remove="(r) => store.deleteRecord(r)"
           @preview="openPreview"
           @reveal="(p) => store.revealFile(p)"
+          @open="(r) => store.openLink(r)"
           @load-more="store.loadMore()"
         />
 

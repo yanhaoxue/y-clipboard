@@ -2,6 +2,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { api, favoritesStore, prefsStore, isDevMock, contentId, toImgSrc } from '../api'
 import type { Category, ClipboardRecord, FavoriteSnapshot, ItemKind } from '../types'
 import { IMG_SCALES, IMG_SCALE_ORDER, type ImgScale } from '../utils/layout'
+import { webUrlOf } from '../utils/format'
 
 const PAGE_SIZE = 60
 const SEARCH_DEBOUNCE = 100
@@ -356,6 +357,31 @@ async function revealFile(path: string): Promise<void> {
   }
 }
 
+/**
+ * 用系统默认浏览器打开一条链接记录。
+ *
+ * 与"定位文件"同理，打开成功后必须退出插件：浏览器窗口会开在插件窗口
+ * **后面**（插件窗口是置顶的），不退出的话用户以为点了没反应。
+ * 内容不可信，所以先经 webUrlOf 过滤协议（只放行 http/https）。
+ */
+async function openLink(r: ClipboardRecord): Promise<void> {
+  const url = webUrlOf(r.content)
+  if (!url) {
+    api.toast('这条内容不是一个可打开的网址')
+    return
+  }
+  try {
+    const ok = api.openExternal(url)
+    if (!ok) {
+      api.toast('未能打开浏览器：' + url)
+      return
+    }
+    api.outPlugin()
+  } catch (e) {
+    api.toast('打开失败：' + (e instanceof Error ? e.message : String(e)))
+  }
+}
+
 async function deleteRecord(r: ClipboardRecord): Promise<void> {
   const idx = filtered.value.findIndex((x) => x.id === r.id)
   const ok = await api.remove(r.id)
@@ -509,7 +535,7 @@ export function useStore() {
     imgScale, imgScaleLabel, cycleImgScale,
     init, loadFirst, loadMore, setQuery, setCat,
     copyRecord, deleteRecord, toggleStar, clearAll, moveSelection,
-    revealFile, favKey
+    revealFile, openLink, favKey
   }
 }
 

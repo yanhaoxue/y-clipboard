@@ -37,6 +37,8 @@ const emit = defineEmits<{
   preview: [record: ClipboardRecord]
   /** 在文件管理器中定位到某个路径（来自文件卡片的定位按钮） */
   reveal: [path: string]
+  /** 在系统浏览器中打开（来自链接记录的打开按钮） */
+  open: [record: ClipboardRecord]
   'load-more': []
 }>()
 
@@ -221,6 +223,7 @@ onBeforeUnmount(() => ro?.disconnect())
           @copy="emit('copy', row.rec)"
           @star="emit('star', row.rec)"
           @remove="emit('remove', row.rec)"
+          @open="emit('open', row.rec)"
         />
       </div>
     </div>

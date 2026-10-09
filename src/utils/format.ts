@@ -88,6 +88,33 @@ export function isHexColor(t: string): boolean {
   return /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(t.trim())
 }
 
+/**
+ * 把一段文本规范成"能交给系统浏览器打开"的网址，不能打开时返回 null。
+ *
+ * 只放行 http/https（外加裸 `www.` 自动补协议）：
+ * `file://`、`data:`、`javascript:` 等协议交给 shell 打开是有风险的，
+ * 而且剪贴板内容不可信 —— 宁可不开，也不能把危险协议递出去。
+ * 另外要求整串无空白（"整段就是一个网址"才给入口），
+ * 避免把一段含 URL 的散文也当成链接。
+ */
+export function webUrlOf(text: string): string | null {
+  const t = String(text ?? '').trim()
+  if (!t || /\s/.test(t)) return null
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(t) ? t : `https://${t}`
+  try {
+    const u = new URL(withScheme)
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null
+    // 至少要有个像样的主机（"https://" 后面什么都没有时 host 为空；
+    // 单个单词如 "abc" 不是域名，浏览器只会拿它去搜索，不给入口）
+    const host = u.hostname
+    const solid = host === 'localhost' || host.includes('.') || host.startsWith('[')
+    if (!host || !solid) return null
+    return u.href
+  } catch {
+    return null
+  }
+}
+
 /** 记录的次级说明文案（空串表示不显示） */
 export function recordMeta(r: ClipboardRecord): string {
   if (r.kind === 'image') {

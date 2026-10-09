@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ClipboardRecord } from '../types'
-import { KIND_META, previewText, relTime, recordMeta, isHexColor } from '../utils/format'
+import { KIND_META, previewText, relTime, recordMeta, isHexColor, webUrlOf } from '../utils/format'
 
 const props = defineProps<{
   record: ClipboardRecord
@@ -13,7 +13,16 @@ const emit = defineEmits<{
   copy: []
   star: []
   remove: []
+  /** 在浏览器里打开（仅当内容是一个 http(s) 网址时才有这个入口） */
+  open: []
 }>()
+
+/**
+ * 可打开的网址；不是网址时为空 —— 按钮随之不渲染。
+ * 按"内容"而不是按 kind 判断：宿主的分类不一定准（同一段 URL 可能被归成文本），
+ * 而用户看到的是内容本身。
+ */
+const linkUrl = computed(() => webUrlOf(props.record.content))
 
 const meta = computed(() => KIND_META[props.record.kind])
 const time = computed(() => relTime(props.record.createdAt))
@@ -62,6 +71,20 @@ const colorSwatch = computed(() => (isHexColor(props.record.content) ? props.rec
     <div class="tail">
       <span class="time">{{ time }}</span>
       <span class="ops">
+        <!-- 链接专用：交给系统浏览器打开（打开后插件会自己退出，见 store.openLink） -->
+        <button
+          v-if="linkUrl"
+          class="op op-open"
+          title="在浏览器中打开"
+          @click.stop="emit('open')"
+        >
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke-width="1.7"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 5h5v5" stroke="currentColor" />
+            <path d="M19 5l-7.5 7.5" stroke="currentColor" />
+            <path d="M18 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4" stroke="currentColor" />
+          </svg>
+        </button>
         <button
           class="op"
           :class="{ starred }"
@@ -188,5 +211,7 @@ const colorSwatch = computed(() => (isHexColor(props.record.content) ? props.rec
 
 .op:hover { background: var(--active); color: var(--text); }
 .op.starred { color: var(--star); }
+/* 打开链接是"往外走"的动作，用主色区别于删除（危险色） */
+.op.op-open:hover { background: var(--accent-weak); color: var(--accent); }
 .op.op-del:hover { background: var(--danger-weak); color: var(--danger); }
 </style>

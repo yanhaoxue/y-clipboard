@@ -464,6 +464,36 @@ export const host = {
   },
 
   /**
+   * 用系统默认浏览器打开网址。
+   *
+   * 优先走宿主官方 API `shellOpenExternal`（Electron 的 shell.openExternal）；
+   * 老宿主没有该 API 时退回 `window.open`（浏览器开发模式就是这条路）。
+   * 只接受 http/https —— 协议过滤在调用方（utils/format 的 webUrlOf）做，
+   * 这里不再重复判断，免得两处规则不一致。
+   */
+  openExternal(url: string): boolean {
+    const zt = window.ztools as any
+    try {
+      if (typeof zt?.shellOpenExternal === 'function') {
+        zt.shellOpenExternal(url)
+        return true
+      }
+    } catch {
+      /* 宿主 API 抛错：继续走兜底 */
+    }
+    try {
+      const w = window.open(url, '_blank', 'noopener,noreferrer')
+      if (w) {
+        w.opener = null
+        return true
+      }
+    } catch {
+      /* 被浏览器拦截（非用户手势触发时常见） */
+    }
+    return false
+  },
+
+  /**
    * 设置宿主子输入框（插件模式下的搜索框）。
    *
    * 签名必须是 setSubInput(onChange, placeholder, isFocus) —— 第一个参数
@@ -692,6 +722,10 @@ function buildMockData(): any[] {
 
 let mockDb = buildMockData()
 
+/** 开发模式下最后一次"要交给浏览器打开"的网址（见 mock.openExternal） */
+let lastExternalUrl = ''
+export const devLastExternalUrl = (): string => lastExternalUrl
+
 const mock = {
   async getHistory(page: number, pageSize: number): Promise<PageResult> {
     await sleep(60)
@@ -744,6 +778,20 @@ const mock = {
   /** 开发模式没有宿主可调用：如实告知动作内容，并按成功处理以走通界面流程 */
   async reveal(filePath: string): Promise<boolean> {
     mock.toast('开发模式：此处会打开资源管理器并选中 ' + filePath)
+    return true
+  },
+
+  /**
+   * 开发模式没有宿主 shell：不真的弹浏览器（会打断调试），改成
+   * 记下最后一次要打开的网址 + toast 提示。记下来的值同时给探针/测试用
+   * —— 界面上"点了没反应"和"根本没调用"是两种完全不同的 bug。
+   */
+  openExternal(url: string): boolean {
+    lastExternalUrl = url
+    // 也挂到 window 上：开发模式下没有宿主可查，界面上"点了没反应"和
+    // "压根没调用"是两种 bug，探针读这个值就能区分。
+    ;(window as unknown as Record<string, unknown>).__lastExternalUrl = url
+    mock.toast('开发模式：此处会用浏览器打开 ' + url)
     return true
   },
 
