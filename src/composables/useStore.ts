@@ -1,5 +1,5 @@
 import { computed, reactive, ref, watch } from 'vue'
-import { api, favoritesStore, prefsStore, isDevMock, contentId, toImgSrc } from '../api'
+import { api, favoritesStore, prefsStore, contentId, toImgSrc } from '../api'
 import type { Category, ClipboardRecord, FavoriteSnapshot, ItemKind } from '../types'
 import { IMG_SCALES, IMG_SCALE_ORDER, type ImgScale } from '../utils/layout'
 import { webUrlOf } from '../utils/format'
@@ -382,21 +382,34 @@ async function openLink(r: ClipboardRecord): Promise<void> {
   }
 }
 
+/**
+ * 删除一条记录。
+ *
+ * **以界面为准（乐观删除）**：不再因为宿主接口返回失败就弹"删除失败"、
+ * 然后什么都不做 —— 用户点的是界面上的记录，点了就该消失。
+ *
+ * 最典型的失败场景就是"收藏"分类：那里的记录是**本插件自己的快照**，
+ * id 是内容 key，宿主历史库里压根没有这条 id，delete 必然失败；
+ * 拿它的返回值卡住界面，等于让"删除"按钮在收藏里完全失效。
+ * 宿主那边万一真没删掉，下次打开还在，再删一次即可（失败只在控制台留痕）。
+ */
 async function deleteRecord(r: ClipboardRecord): Promise<void> {
   const idx = filtered.value.findIndex((x) => x.id === r.id)
-  const ok = await api.remove(r.id)
-  if (!ok) {
-    api.toast('删除失败')
-    return
-  }
   if (activeCat.value === 'star') {
+    // 收藏快照由本插件持久化，没有宿主记录可删：改本地即可
     favorites.value = favorites.value.filter((f) => f.id !== r.id)
     favoritesStore.save(favorites.value)
     recount()
   } else {
     records.value = records.value.filter((x) => x.id !== r.id)
+    // 远端搜索结果里可能存着同一条（source 按 id 去重，只删一边它会"复活"）
+    remoteResults.value = remoteResults.value.filter((x) => x.id !== r.id)
     if (totalCount.value > 0) totalCount.value -= 1
     recount()
+    // 通知宿主删除，但不拿它的返回值拦界面
+    void api.remove(r.id).catch((e: unknown) => {
+      console.warn('[y-clipboard] 宿主侧删除未成功（界面已移除）：', e)
+    })
   }
   if (idx >= 0 && idx < filtered.value.length) {
     selectedIndex.value = Math.min(idx, filtered.value.length - 1)
@@ -425,17 +438,23 @@ function toggleStar(r: ClipboardRecord): void {
   recount()
 }
 
+/**
+ * 清空历史。同样是"以界面为准"：宿主 clear 返回 0（老版本不返回 count）
+ * 也照样清空列表 —— 弹了清空却什么都没变，比不弹更让人困惑。
+ * 提示里的条数用界面上真实存在的条数，不用宿主的返回值。
+ */
 async function clearAll(): Promise<void> {
-  const n = await api.clear()
-  if (n > 0 || isDevMock()) {
-    records.value = []
-    page.value = 0
-    hasMore.value = false
-    totalCount.value = 0
-    scannedCats.clear()
-    recount()
-    api.toast(`已清空 ${n} 条记录`)
-  }
+  const n = records.value.length
+  void api.clear().catch((e: unknown) => {
+    console.warn('[y-clipboard] 宿主侧清空未成功（界面已清空）：', e)
+  })
+  records.value = []
+  page.value = 0
+  hasMore.value = false
+  totalCount.value = 0
+  scannedCats.clear()
+  recount()
+  api.toast(n > 0 ? `已清空 ${n} 条记录` : '已清空')
 }
 
 function setCat(cat: Category): void {
