@@ -237,6 +237,70 @@ async function loadMore(): Promise<void> {
 }
 
 /* ------------------------------------------------------------------ */
+/* 实时性：宿主推送 + 运行期轮询兜底                                    */
+/* ------------------------------------------------------------------ */
+
+/** 运行期间的轮询间隔（毫秒） */
+export const POLL_INTERVAL_MS = 1200
+
+/** 每次"探新"拉多少条最新的历史（够覆盖一次连续复制） */
+const HEAD_SIZE = 5
+
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+/**
+ * 把宿主库里最新的一批记录并入列表。
+ *
+ * 只补"本地没有的"，并且是 prepend —— 新复制的一定在最前面。
+ * 返回确实新增了几条（0 表示没变化），调用方据此决定是否要更新计数。
+ */
+async function syncLatest(): Promise<number> {
+  try {
+    const res = await api.getHistory(1, HEAD_SIZE)
+    const seen = new Set(records.value.map((r) => r.id))
+    const fresh = res.items.filter((r) => !seen.has(r.id))
+    if (fresh.length === 0) return 0
+    records.value = fresh.concat(records.value)
+    // 头部插入会把所有行往下推，选中下标要跟着挪，
+    // 否则用户盯着的那条会在回车复制时变成别人（下标是位置，不是记录）
+    if (selectedIndex.value > 0) selectedIndex.value += fresh.length
+    // 总数也要跟上：看着列表变长了、侧栏计数却不动，一样是"没实时更新"
+    if (res.total) totalCount.value = res.total
+    else totalCount.value += fresh.length
+    recount()
+    return fresh.length
+  } catch {
+    /* 宿主忙/窗口正在关闭：这一拍不算事，下一拍还会再来 */
+    return 0
+  }
+}
+
+/** 用一次轻量查询判断"库里是不是多了东西" */
+async function hasNewRecords(): Promise<boolean> {
+  const n = await api.clipboardCount()
+  if (n === null) return true // 老宿主没有 getStatus：不看也查，反正只是多一次 IPC
+  if (n === totalCount.value) return false
+  totalCount.value = n
+  return true
+}
+
+function startWatching(): void {
+  stopWatching()
+  // 进来先看一眼：打开插件之前复制的内容，推出来就该在最新的位置上
+  void syncLatest()
+  pollTimer = setInterval(() => {
+    void hasNewRecords().then((yes) => {
+      if (yes) void syncLatest()
+    })
+  }, POLL_INTERVAL_MS)
+}
+
+function stopWatching(): void {
+  if (pollTimer) clearInterval(pollTimer)
+  pollTimer = null
+}
+
+/* ------------------------------------------------------------------ */
 /* 搜索：本地即时过滤 + 远端防抖补充                                   */
 /* ------------------------------------------------------------------ */
 
@@ -516,31 +580,27 @@ function init(): void {
   subInputReady.value = api.setSubInput(setQuery, '搜索剪贴板历史')
 
   // 每次打开插件都把焦点抢回搜索框（挂载时那次会被宿主的 view.focus() 抢走）
-  api.onPluginEnter(() => focusSearch())
-  // 退出插件时取消尚未执行的重试
-  api.onPluginOut(() => cancelFocus())
+  api.onPluginEnter(() => {
+    focusSearch()
+    // 运行期开始"盯着"宿主：推送不保证到，见下面 startWatching 的说明
+    startWatching()
+  })
+  // 退出插件时取消尚未执行的重试，并停止轮询
+  api.onPluginOut(() => {
+    cancelFocus()
+    stopWatching()
+  })
 
-  api.onChange(async (payload?: unknown) => {
-    // 变化项结构未知：能归一化就 prepend，否则保守重载第一页
-    const maybe = Array.isArray(payload) ? payload[0] : payload
-    if (maybe && typeof maybe === 'object') {
-      try {
-        const res = await api.getHistory(1, 5)
-        const seen = new Set(records.value.map((r) => r.id))
-        const fresh = res.items.filter((r) => !seen.has(r.id))
-        if (fresh.length) {
-          records.value = fresh.concat(records.value)
-          recount()
-          return
-        }
-        if (res.items.length) {
-          records.value = res.items
-          recount()
-          return
-        }
-      } catch { /* fallthrough */ }
-    }
-    void loadFirst()
+  /**
+   * 宿主推送（`clipboard.onChange` → 主进程 `sendPluginMessage('clipboard-change')`）。
+   * 它只发给 `pluginManager.pluginView`（当前那个视图），实际并不总能收到 ——
+   * 表现就是"插件开着，新复制的内容不出现，退出再进就好了"。
+   * 所以这里只当它是**加速器**：收到就立刻同步一次，收不到另有下面的轮询兜底。
+   */
+  api.onChange(() => {
+    void hasNewRecords().then((yes) => {
+      if (yes) void syncLatest()
+    })
   })
 
   void loadFirst()
@@ -554,7 +614,8 @@ export function useStore() {
     imgScale, imgScaleLabel, cycleImgScale,
     init, loadFirst, loadMore, setQuery, setCat,
     copyRecord, deleteRecord, toggleStar, clearAll, moveSelection,
-    revealFile, openLink, favKey
+    revealFile, openLink, favKey,
+    syncLatest, stopWatching
   }
 }
 
