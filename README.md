@@ -8,7 +8,7 @@
 
 ### 全部
 
-![preview-all](design\preview-all.png)
+![preview-all](./design./preview-all.png)
 
 ### 代码
 
