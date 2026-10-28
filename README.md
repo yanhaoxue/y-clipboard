@@ -1,4 +1,4 @@
-# Y剪贴板
+# 极速剪贴板
 
 > ZTools 剪贴板历史管理插件 · Vue 3 + TypeScript + Vite
 
